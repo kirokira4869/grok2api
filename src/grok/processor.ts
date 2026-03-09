@@ -170,6 +170,8 @@ export function createOpenAiStreamFromGrokNdjson(
       let lastVideoProgress = -1;
 
       let buffer = "";
+      // Collect web search sources across all chunks
+      const collectedSources: Array<{ title: string; url: string }> = [];
 
       const flushStop = () => {
         controller.enqueue(encoder.encode(makeChunk(id, created, currentModel, "", "stop")));
@@ -345,6 +347,14 @@ export function createOpenAiStreamFromGrokNdjson(
             if (thinkingFinished && currentIsThinking) continue;
 
             if (grok.toolUsageCardId && grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results)) {
+              // Always collect sources regardless of thinking state
+              for (const r of grok.webSearchResults.results) {
+                const _title = typeof r.title === "string" ? r.title : "";
+                const _url = typeof r.url === "string" ? r.url : "";
+                if (_url && !collectedSources.some((s) => s.url === _url)) {
+                  collectedSources.push({ title: _title, url: _url });
+                }
+              }
               if (currentIsThinking) {
                 if (showThinking) {
                   let appended = "";
@@ -352,7 +362,7 @@ export function createOpenAiStreamFromGrokNdjson(
                     const title = typeof r.title === "string" ? r.title : "";
                     const url = typeof r.url === "string" ? r.url : "";
                     const preview = typeof r.preview === "string" ? r.preview.replace(/\n/g, "") : "";
-                    appended += `\n- [${title}](${url} \"${preview}\")`;
+                    appended += `\n- [${title}](${url} "${preview}")`;
                   }
                   token += `${appended}\n`;
                 } else {
@@ -382,6 +392,14 @@ export function createOpenAiStreamFromGrokNdjson(
           }
         }
 
+        // Emit collected web search sources as a citations chunk before stop
+        if (collectedSources.length > 0) {
+          let sourcesText = "\n\n---\n**搜索来源**\n";
+          collectedSources.forEach((s, i) => {
+            sourcesText += `${i + 1}. [${s.title || s.url}](${s.url})\n`;
+          });
+          controller.enqueue(encoder.encode(makeChunk(id, created, currentModel, sourcesText)));
+        }
         controller.enqueue(encoder.encode(makeChunk(id, created, currentModel, "", "stop")));
         controller.enqueue(encoder.encode(makeDone()));
         if (opts.onFinish) await opts.onFinish({ status: finalStatus, duration: (Date.now() - startTime) / 1000 });
@@ -416,6 +434,7 @@ export async function parseOpenAiFromGrokNdjson(
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
 
   let content = "";
+  const nonStreamSources: Array<{ title: string; url: string }> = [];
   let model = requestedModel;
   for (const line of lines) {
     let data: GrokNdjson;
@@ -451,6 +470,17 @@ export async function parseOpenAiFromGrokNdjson(
       break;
     }
 
+    // Collect web search sources for non-streaming
+    if (grok.toolUsageCardId && grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results)) {
+      for (const r of grok.webSearchResults.results) {
+        const _t = typeof r.title === "string" ? r.title : "";
+        const _u = typeof r.url === "string" ? r.url : "";
+        if (_u && !nonStreamSources.some((s) => s.url === _u)) {
+          nonStreamSources.push({ title: _t, url: _u });
+        }
+      }
+    }
+
     const modelResp = grok.modelResponse;
     if (!modelResp) continue;
     if (typeof modelResp.error === "string" && modelResp.error) throw new Error(modelResp.error);
@@ -474,6 +504,14 @@ export async function parseOpenAiFromGrokNdjson(
 
     // For normal chat replies, the first modelResponse is enough.
     break;
+  }
+
+  // Append collected sources to content
+  if (nonStreamSources.length > 0) {
+    content += "\n\n---\n**搜索来源**\n";
+    nonStreamSources.forEach((s, i) => {
+      content += `${i + 1}. [${s.title || s.url}](${s.url})\n`;
+    });
   }
 
   return {
