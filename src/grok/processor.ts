@@ -395,17 +395,16 @@ export function createOpenAiStreamFromGrokNdjson(
           }
         }
 
-        // Emit collected web search sources as a citations chunk before stop
-        if (collectedSources.length > 0) {
-          let sourcesText = "\n\n---\n**搜索来源**\n";
-          let _idx = 1;
-          for (const s of collectedSources) {
-            sourcesText += `${_idx}. [${s.title || s.url}](${s.url})\n`;
-            _idx++;
-          }
-          controller.enqueue(encoder.encode(makeChunk(id, created, currentModel, sourcesText)));
-        }
-        controller.enqueue(encoder.encode(makeChunk(id, created, currentModel, "", "stop")));
+        // Emit stop chunk with citations
+        const _citationsPayload = {
+          id,
+          object: "chat.completion.chunk",
+          created,
+          model: currentModel,
+          choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+          citations: collectedSources.map((s) => s.url),
+        };
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(_citationsPayload)}\n\n`));
         controller.enqueue(encoder.encode(makeDone()));
         if (opts.onFinish) await opts.onFinish({ status: finalStatus, duration: (Date.now() - startTime) / 1000 });
         controller.close();
@@ -511,16 +510,6 @@ export async function parseOpenAiFromGrokNdjson(
     break;
   }
 
-  // Append collected sources to content
-  if (nonStreamSources.length > 0) {
-    content += "\n\n---\n**搜索来源**\n";
-    let _si = 1;
-    for (const s of nonStreamSources) {
-      content += `${_si}. [${s.title || s.url}](${s.url})\n`;
-      _si++;
-    }
-  }
-
   return {
     id: `chatcmpl-${crypto.randomUUID()}`,
     object: "chat.completion",
@@ -533,6 +522,7 @@ export async function parseOpenAiFromGrokNdjson(
         finish_reason: "stop",
       },
     ],
+    citations: nonStreamSources.map((s) => s.url),
     usage: null,
   };
 }
