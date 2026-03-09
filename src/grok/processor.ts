@@ -339,6 +339,17 @@ export function createOpenAiStreamFromGrokNdjson(
             if (typeof rawToken !== "string" || !rawToken) continue;
             let token = rawToken;
 
+            // Collect sources early, before any tag filtering
+            if (grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results)) {
+              for (const r of grok.webSearchResults.results) {
+                const _title = typeof r.title === "string" ? r.title : "";
+                const _url = typeof r.url === "string" ? r.url : "";
+                if (_url && !collectedSources.some((s) => s.url === _url)) {
+                  collectedSources.push({ title: _title, url: _url });
+                }
+              }
+            }
+
             if (filteredTags.some((t) => token.includes(t))) continue;
 
             const currentIsThinking = Boolean(grok.isThinking);
@@ -347,15 +358,6 @@ export function createOpenAiStreamFromGrokNdjson(
             if (thinkingFinished && currentIsThinking) continue;
 
             if (grok.toolUsageCardId && grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results)) {
-              // Always collect sources regardless of thinking state
-              for (const r of grok.webSearchResults.results) {
-                const _title = typeof r.title === "string" ? r.title : "";
-                const _url = typeof r.url === "string" ? r.url : "";
-                if (_url && !collectedSources.some((s) => s.url === _url)) {
-                  collectedSources.push({ title: _title, url: _url });
-                }
-              }
-              if (currentIsThinking) {
                 if (showThinking) {
                   let appended = "";
                   for (const r of grok.webSearchResults.results) {
