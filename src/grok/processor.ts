@@ -395,7 +395,17 @@ export function createOpenAiStreamFromGrokNdjson(
           }
         }
 
-        // Emit stop chunk with citations
+        // Emit sources as markdown content chunk (for text parsers like GrokSearch)
+        if (collectedSources.length > 0) {
+          let _srcText = "\n\n**Sources**\n";
+          let _si = 1;
+          for (const s of collectedSources) {
+            _srcText += `${_si}. [${s.title || s.url}](${s.url})\n`;
+            _si++;
+          }
+          controller.enqueue(encoder.encode(makeChunk(id, created, currentModel, _srcText)));
+        }
+        // Emit stop chunk with OpenAI-standard citations field
         const _citationsPayload = {
           id,
           object: "chat.completion.chunk",
@@ -508,6 +518,16 @@ export async function parseOpenAiFromGrokNdjson(
 
     // For normal chat replies, the first modelResponse is enough.
     break;
+  }
+
+  // Append sources as markdown to content (for text parsers)
+  if (nonStreamSources.length > 0) {
+    content += "\n\n**Sources**\n";
+    let _nsi = 1;
+    for (const s of nonStreamSources) {
+      content += `${_nsi}. [${s.title || s.url}](${s.url})\n`;
+      _nsi++;
+    }
   }
 
   return {
