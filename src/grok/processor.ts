@@ -358,6 +358,7 @@ export function createOpenAiStreamFromGrokNdjson(
             if (thinkingFinished && currentIsThinking) continue;
 
             if (grok.toolUsageCardId && grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results)) {
+              if (currentIsThinking) {
                 if (showThinking) {
                   let appended = "";
                   for (const r of grok.webSearchResults.results) {
@@ -397,9 +398,11 @@ export function createOpenAiStreamFromGrokNdjson(
         // Emit collected web search sources as a citations chunk before stop
         if (collectedSources.length > 0) {
           let sourcesText = "\n\n---\n**搜索来源**\n";
-          collectedSources.forEach((s, i) => {
-            sourcesText += `${i + 1}. [${s.title || s.url}](${s.url})\n`;
-          });
+          let _idx = 1;
+          for (const s of collectedSources) {
+            sourcesText += `${_idx}. [${s.title || s.url}](${s.url})\n`;
+            _idx++;
+          }
           controller.enqueue(encoder.encode(makeChunk(id, created, currentModel, sourcesText)));
         }
         controller.enqueue(encoder.encode(makeChunk(id, created, currentModel, "", "stop")));
@@ -511,9 +514,11 @@ export async function parseOpenAiFromGrokNdjson(
   // Append collected sources to content
   if (nonStreamSources.length > 0) {
     content += "\n\n---\n**搜索来源**\n";
-    nonStreamSources.forEach((s, i) => {
-      content += `${i + 1}. [${s.title || s.url}](${s.url})\n`;
-    });
+    let _si = 1;
+    for (const s of nonStreamSources) {
+      content += `${_si}. [${s.title || s.url}](${s.url})\n`;
+      _si++;
+    }
   }
 
   return {
