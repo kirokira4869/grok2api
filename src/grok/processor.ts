@@ -335,12 +335,8 @@ export function createOpenAiStreamFromGrokNdjson(
             }
 
             // Text chat stream
-            if (Array.isArray(rawToken)) continue;
-            if (typeof rawToken !== "string" || !rawToken) continue;
-            let token = rawToken;
-
             // Collect sources early, before any tag filtering
-            if (grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results)) {
+            if (grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results) && (grok.webSearchResults.results as any[]).length > 0) {
               for (const r of grok.webSearchResults.results) {
                 const _title = typeof r.title === "string" ? r.title : "";
                 const _url = typeof r.url === "string" ? r.url : "";
@@ -350,6 +346,10 @@ export function createOpenAiStreamFromGrokNdjson(
               }
             }
 
+            if (Array.isArray(rawToken)) continue;
+            if (typeof rawToken !== "string" || !rawToken) continue;
+            let token = rawToken;
+
             if (filteredTags.some((t) => token.includes(t))) continue;
 
             const currentIsThinking = Boolean(grok.isThinking);
@@ -357,7 +357,7 @@ export function createOpenAiStreamFromGrokNdjson(
 
             if (thinkingFinished && currentIsThinking) continue;
 
-            if (grok.toolUsageCardId && grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results)) {
+            if (grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results) && (grok.webSearchResults.results as any[]).length > 0) {
               if (currentIsThinking) {
                 if (showThinking) {
                   let appended = "";
@@ -476,7 +476,7 @@ export async function parseOpenAiFromGrokNdjson(
     }
 
     // Collect web search sources for non-streaming
-    if (grok.toolUsageCardId && grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results)) {
+    if (grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results) && (grok.webSearchResults.results as any[]).length > 0) {
       for (const r of grok.webSearchResults.results) {
         const _t = typeof r.title === "string" ? r.title : "";
         const _u = typeof r.url === "string" ? r.url : "";
