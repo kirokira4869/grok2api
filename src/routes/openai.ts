@@ -1199,6 +1199,9 @@ openAiRoutes.post("/chat/completions", async (c) => {
       model?: string;
       messages?: any[];
       stream?: boolean;
+      search?: boolean;
+      enable_search?: boolean;
+      tools?: Array<{ type?: string }>;
       video_config?: {
         aspect_ratio?: string;
         video_length?: number;
@@ -1221,6 +1224,10 @@ openAiRoutes.post("/chat/completions", async (c) => {
       : [401, 429];
 
     const stream = Boolean(body.stream);
+    const enableSearch = body.search ?? body.enable_search ?? Boolean((body.tools ?? []).some((tool) => {
+      const toolType = String(tool?.type ?? "").trim().toLowerCase();
+      return toolType === "web_search" || toolType === "web_search_preview";
+    })) ?? settingsBundle.grok.default_enable_search ?? false;
     const maxRetry = 3;
     let lastErr: string | null = null;
 
@@ -1279,6 +1286,7 @@ openAiRoutes.post("/chat/completions", async (c) => {
           ...(postId ? { postId } : {}),
           ...(isVideoModel && body.video_config ? { videoConfig: body.video_config } : {}),
           settings: settingsBundle.grok,
+          enableSearch,
         });
 
         const upstream = await sendConversationRequest({
@@ -1304,6 +1312,7 @@ openAiRoutes.post("/chat/completions", async (c) => {
             global: settingsBundle.global,
             origin,
             requestedModel,
+            enableSearch,
             onFinish: async ({ status, duration }) => {
               await addRequestLog(c.env.DB, {
                 ip,
