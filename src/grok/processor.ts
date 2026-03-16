@@ -122,10 +122,12 @@ export function createOpenAiStreamFromGrokNdjson(
     global: GlobalSettings;
     origin: string;
     requestedModel: string;
+    enableSearch?: boolean;
     onFinish?: (result: { status: number; duration: number }) => Promise<void> | void;
   },
 ): ReadableStream<Uint8Array> {
   const { settings, global, origin } = opts;
+  const enableSearch = opts.enableSearch === true;
   const fallbackModel =
     typeof opts.requestedModel === "string" && opts.requestedModel.trim()
       ? opts.requestedModel.trim()
@@ -336,7 +338,7 @@ export function createOpenAiStreamFromGrokNdjson(
 
             // Text chat stream
             // Collect sources early, before any tag filtering
-            if (grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results) && (grok.webSearchResults.results as any[]).length > 0) {
+            if (enableSearch && grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results) && (grok.webSearchResults.results as any[]).length > 0) {
               for (const r of grok.webSearchResults.results) {
                 const _title = typeof r.title === "string" ? r.title : "";
                 const _url = typeof r.url === "string" ? r.url : "";
@@ -357,7 +359,7 @@ export function createOpenAiStreamFromGrokNdjson(
 
             if (thinkingFinished && currentIsThinking) continue;
 
-            if (grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results) && (grok.webSearchResults.results as any[]).length > 0) {
+            if (enableSearch && grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results) && (grok.webSearchResults.results as any[]).length > 0) {
               if (currentIsThinking) {
                 if (showThinking) {
                   let appended = "";
@@ -441,9 +443,10 @@ export function createOpenAiStreamFromGrokNdjson(
 
 export async function parseOpenAiFromGrokNdjson(
   grokResp: Response,
-  opts: { cookie: string; settings: GrokSettings; global: GlobalSettings; origin: string; requestedModel: string },
+  opts: { cookie: string; settings: GrokSettings; global: GlobalSettings; origin: string; requestedModel: string; enableSearch?: boolean },
 ): Promise<Record<string, unknown>> {
   const { global, origin, requestedModel, settings } = opts;
+  const enableSearch = opts.enableSearch === true;
   const text = await grokResp.text();
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
 
@@ -485,7 +488,7 @@ export async function parseOpenAiFromGrokNdjson(
     }
 
     // Collect web search sources for non-streaming
-    if (grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results) && (grok.webSearchResults.results as any[]).length > 0) {
+    if (enableSearch && grok.webSearchResults?.results && Array.isArray(grok.webSearchResults.results) && (grok.webSearchResults.results as any[]).length > 0) {
       for (const r of grok.webSearchResults.results) {
         const _t = typeof r.title === "string" ? r.title : "";
         const _u = typeof r.url === "string" ? r.url : "";
@@ -521,7 +524,7 @@ export async function parseOpenAiFromGrokNdjson(
   }
 
   // Append sources as markdown to content (for text parsers)
-  if (nonStreamSources.length > 0) {
+  if (enableSearch && nonStreamSources.length > 0) {
     content += "\n\n**Sources**\n";
     let _nsi = 1;
     for (const s of nonStreamSources) {
@@ -542,7 +545,7 @@ export async function parseOpenAiFromGrokNdjson(
         finish_reason: "stop",
       },
     ],
-    citations: nonStreamSources.map((s) => s.url),
+    citations: enableSearch ? nonStreamSources.map((s) => s.url) : [],
     usage: null,
   };
 }

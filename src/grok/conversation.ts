@@ -81,6 +81,7 @@ export function buildConversationPayload(args: {
     preset?: string;
   };
   settings: GrokSettings;
+  enableSearch?: boolean;
 }): { payload: Record<string, unknown>; referer?: string; isVideoModel: boolean } {
   const { requestModel, content, imgIds, imgUris, postId, settings } = args;
   const cfg = getModelInfo(requestModel);
@@ -136,7 +137,7 @@ export function buildConversationPayload(args: {
       message: content,
       fileAttachments: imgIds,
       imageAttachments: [],
-      disableSearch: false,
+      disableSearch: !enableSearch,
       enableImageGeneration: true,
       returnImageBytes: false,
       returnRawGrokInXaiRequest: false,
