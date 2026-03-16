@@ -84,6 +84,7 @@ export function buildConversationPayload(args: {
   enableSearch?: boolean;
 }): { payload: Record<string, unknown>; referer?: string; isVideoModel: boolean } {
   const { requestModel, content, imgIds, imgUris, postId, settings } = args;
+  const enableSearch = args.enableSearch ?? settings.default_enable_search ?? false;
   const cfg = getModelInfo(requestModel);
   const { grokModel, mode, isVideoModel } = toGrokModel(requestModel);
 
