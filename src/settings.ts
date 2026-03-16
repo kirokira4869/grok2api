@@ -30,6 +30,7 @@ export interface GrokSettings {
   stream_total_timeout?: number;
   retry_status_codes?: number[];
   image_generation_method?: string;
+  default_enable_search?: boolean;
 }
 
 export interface TokenSettings {
@@ -107,6 +108,7 @@ const DEFAULTS: SettingsBundle = {
     stream_total_timeout: 600,
     retry_status_codes: [401, 429, 403],
     image_generation_method: "legacy",
+    default_enable_search: false,
   },
   token: {
     auto_refresh: true,
